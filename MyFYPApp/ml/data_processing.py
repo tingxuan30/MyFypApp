@@ -3,7 +3,8 @@ from sqlalchemy import text
 from database import get_engine
 
 
-def load_vegetable_data(year):
+
+def load_vegetable_data(year, chunksize=200000):
 
     engine = get_engine()
 
@@ -26,21 +27,82 @@ def load_vegetable_data(year):
     try:
         with engine.connect() as connection:
 
-            df = pd.read_sql(
+            chunks = []
+
+            for chunk in pd.read_sql(
                 query,
                 connection,
                 params={
                     "start_date": start_date,
                     "end_date": end_date
                 },
-                parse_dates=["date"]
-            )
+                parse_dates=["date"],
+                chunksize=chunksize
+            ):
+
+                chunks.append(chunk)
+
+                print(
+                    f"Loaded records: "
+                    f"{sum(len(c) for c in chunks):,}"
+                )
+
+            df = pd.concat(chunks, ignore_index=True)
 
         return df
 
     finally:
         engine.dispose()
 
+def iter_vegetable_data(year, chunksize=200000):
+
+    from sqlalchemy import text
+
+    engine = get_engine()
+
+    query = text("""
+        SELECT
+            date,
+            item_code,
+            premise_code,
+            average_price,
+            transaction_count
+        FROM dbo.DailyVegetablePriceByPremise
+        WHERE date >= :start_date
+          AND date < :end_date
+        ORDER BY date, item_code, premise_code
+    """)
+
+    start_date = f"{year}-01-01"
+    end_date = f"{year + 1}-01-01"
+
+    try:
+
+        with engine.connect() as connection:
+
+            for chunk_number, chunk in enumerate(
+                pd.read_sql(
+                    query,
+                    connection,
+                    params={
+                        "start_date": start_date,
+                        "end_date": end_date
+                    },
+                    parse_dates=["date"],
+                    chunksize=chunksize
+                ),
+                start=1
+            ):
+
+                print(
+                    f"Loaded Chunk {chunk_number}: "
+                    f"{len(chunk):,} records"
+                )
+
+                yield chunk
+
+    finally:
+        engine.dispose()
 
 def check_data_quality(df, year):
 

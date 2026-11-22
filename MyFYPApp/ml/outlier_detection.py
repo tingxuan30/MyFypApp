@@ -53,8 +53,6 @@ KNOWN_ANOMALIES = [
 
 def detect_known_anomalies(df):
 
-    df = df.copy()
-
     df["date"] = pd.to_datetime(df["date"])
 
     df["IsKnownAnomaly"] = False
@@ -85,13 +83,121 @@ def detect_known_anomalies(df):
 
 
 # =====================================================
+# 3. CALCULATE FULL-YEAR IQR BOUNDS
+# =====================================================
+
+def calculate_iqr_bounds(year):
+
+    from sqlalchemy import text
+    from database import get_engine
+
+    print("\n========== CALCULATING YEARLY IQR BOUNDS ==========")
+
+    engine = get_engine()
+
+    query = text("""
+        SELECT
+            item_code,
+            average_price
+        FROM dbo.DailyVegetablePriceByPremise
+        WHERE date >= :start_date
+          AND date < :end_date
+          AND average_price > 0
+    """)
+
+    start_date = f"{year}-01-01"
+    end_date = f"{year + 1}-01-01"
+
+    try:
+
+        with engine.connect() as connection:
+
+            price_df = pd.read_sql(
+                query,
+                connection,
+                params={
+                    "start_date": start_date,
+                    "end_date": end_date
+                }
+            )
+
+        quartiles = (
+            price_df.groupby("item_code")["average_price"]
+            .quantile([0.25, 0.75])
+            .unstack()
+        )
+
+        quartiles.columns = ["Q1", "Q3"]
+
+        quartiles["IQR"] = (
+            quartiles["Q3"] - quartiles["Q1"]
+        )
+
+        quartiles["LowerBound"] = (
+            quartiles["Q1"] - 1.5 * quartiles["IQR"]
+        )
+
+        quartiles["UpperBound"] = (
+            quartiles["Q3"] + 1.5 * quartiles["IQR"]
+        )
+
+        print(f"Year: {year}")
+        print(f"Vegetable item groups: {len(quartiles)}")
+
+        print("\nIQR Bound Preview:")
+        print(quartiles.head(10))
+
+        print("\n========== IQR BOUNDS COMPLETED ==========")
+
+        return quartiles
+
+    finally:
+        engine.dispose()
+
+def detect_iqr_outliers_with_bounds(df, bounds):
+
+    print("\n========== IQR OUTLIER DETECTION ==========")
+
+    # Match each record with its item's IQR bounds
+    lower_bound = df["item_code"].map(
+        bounds["LowerBound"]
+    )
+
+    upper_bound = df["item_code"].map(
+        bounds["UpperBound"]
+    )
+
+    # Detect low and high outliers
+    df["IsIQRLowOutlier"] = (
+        df["average_price"] < lower_bound
+    )
+
+    df["IsIQRHighOutlier"] = (
+        df["average_price"] > upper_bound
+    )
+
+    low_count = int(df["IsIQRLowOutlier"].sum())
+    high_count = int(df["IsIQRHighOutlier"].sum())
+
+    print(f"Low outliers: {low_count:,}")
+    print(f"High outliers: {high_count:,}")
+
+    print(
+        f"Total IQR outliers: "
+        f"{low_count + high_count:,}"
+    )
+
+    print("\n========== DETECTION COMPLETED ==========")
+
+    return df
+
+# =====================================================
 # 3. IQR OUTLIER DETECTION
 # Group by item_code
 # =====================================================
 
 
 def detect_iqr_outliers(df):
-    df = df.copy()
 
     print("\n========== IQR OUTLIER DETECTION ==========")
 

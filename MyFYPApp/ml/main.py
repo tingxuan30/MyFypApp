@@ -1,131 +1,167 @@
 
 import os
+import argparse
 
-from data_processing import (
-    load_vegetable_data,
-    check_data_quality
-)
+from data_processing import iter_vegetable_data
+from outlier_detection import calculate_iqr_bounds
+from data_cleaning import clean_vegetable_chunk
+from data_export import ChunkExporter
 
-from data_cleaning import clean_vegetable_data
-
-
-# =====================================================
-# 1. CONFIGURATION
-# =====================================================
-
-YEAR = 2025
 
 OUTPUT_FOLDER = "cleaned_data"
+CHUNK_SIZE = 200000
 
-
-# =====================================================
-# 2. CREATE OUTPUT FOLDER
-# =====================================================
-
-def create_output_folder():
-
-    os.makedirs(
-        OUTPUT_FOLDER,
-        exist_ok=True
-    )
-
-
-# =====================================================
-# 3. EXPORT DATASETS
-# =====================================================
-
-def export_datasets(clean_df, anomaly_df, full_df, year):
-
-    print("\n========== EXPORTING DATA ==========")
-
-    clean_path = os.path.join(
-        OUTPUT_FOLDER,
-        f"vegetable_cleaned_{year}.csv"
-    )
-
-    anomaly_path = os.path.join(
-        OUTPUT_FOLDER,
-        f"vegetable_anomalies_{year}.csv"
-    )
-
-    full_path = os.path.join(
-        OUTPUT_FOLDER,
-        f"vegetable_full_report_{year}.csv"
-    )
-
-    clean_df.to_csv(
-        clean_path,
-        index=False
-    )
-
-    anomaly_df.to_csv(
-        anomaly_path,
-        index=False
-    )
-
-    full_df.to_csv(
-        full_path,
-        index=False
-    )
-
-    print(f"Clean dataset: {clean_path}")
-    print(f"Anomaly dataset: {anomaly_path}")
-    print(f"Full dataset: {full_path}")
-
-    print("\nExport completed!")
-
-
-# =====================================================
-# 4. MAIN PIPELINE
-# =====================================================
 
 def main():
 
-    print("\n========================================")
-    print(" VEGETABLE DATA CLEANING PIPELINE")
-    print("========================================")
+    # 1. Get year from command line
+    parser = argparse.ArgumentParser(
+        description="Vegetable Data Preprocessing Pipeline"
+    )
 
-    year = YEAR
+    parser.add_argument(
+        "--year",
+        type=int,
+        required=True,
+        help="Year to process, e.g. 2025"
+    )
 
-    # Step 1: Load data
-    print(f"\nLoading vegetable data for {year}...")
+    args = parser.parse_args()
+    year = args.year
 
-    df = load_vegetable_data(year)
+    print("\n========== VEGETABLE DATA PREPROCESSING ==========")
+    print(f"Processing Year: {year}")
+    print(f"Chunk Size: {CHUNK_SIZE:,}")
 
-    print(f"Loaded records: {len(df)}")
+    # 2. Calculate yearly IQR bounds
+    print("\n========== STEP 1: IQR BOUNDS ==========")
 
-    # Step 2: Basic data quality check
-    check_data_quality(df, year)
+    bounds = calculate_iqr_bounds(year)
 
-    # Step 3: Data cleaning and outlier detection
-    clean_df, anomaly_df, full_df = clean_vegetable_data(df)
+    # 3. Initialize exporter
+    print("\n========== STEP 2: INITIALIZE EXPORTER ==========")
 
-    # Step 4: Export datasets
-    create_output_folder()
-
-    export_datasets(
-        clean_df,
-        anomaly_df,
-        full_df,
+    exporter = ChunkExporter(
+        OUTPUT_FOLDER,
         year
     )
 
-    # Step 5: Final summary
-    print("\n========================================")
-    print(" FINAL PIPELINE SUMMARY")
-    print("========================================")
+    # 4. Initialize counters
+    total_records = 0
+    total_clean = 0
+    total_anomalies = 0
+    total_known = 0
+    total_low = 0
+    total_high = 0
+    total_chunks = 0
+    total_invalid = 0
+
+    try:
+
+        # 5. Process data chunk by chunk
+        print("\n========== STEP 3: CHUNK PROCESSING ==========")
+
+        for chunk in iter_vegetable_data(
+            year,
+            chunksize=CHUNK_SIZE
+        ):
+
+            total_chunks += 1
+
+            original_count = len(chunk)
+            total_records += original_count
+
+            # Count invalid records before cleaning
+            valid_mask = (
+                chunk[
+                    [
+                        "date",
+                        "item_code",
+                        "premise_code",
+                        "average_price"
+                    ]
+                ].notna().all(axis=1)
+                & (chunk["average_price"] > 0)
+            )
+
+            total_invalid += int((~valid_mask).sum())
+
+            # Clean current chunk
+            clean_df, anomaly_df, full_df = clean_vegetable_chunk(
+                chunk,
+                bounds
+            )
+
+            # Update counters
+            total_clean += len(clean_df)
+            total_anomalies += len(anomaly_df)
+
+            total_known += int(
+                full_df["IsKnownAnomaly"].sum()
+            )
+
+            total_low += int(
+                full_df["IsIQRLowOutlier"].sum()
+            )
+
+            total_high += int(
+                full_df["IsIQRHighOutlier"].sum()
+            )
+
+            # Export current chunk
+            exporter.write_chunk(
+                clean_df,
+                anomaly_df,
+                full_df
+            )
+
+            print(
+                f"\nChunk {total_chunks} completed"
+            )
+
+            print(f"Original: {original_count:,}")
+            print(f"Clean: {len(clean_df):,}")
+            print(f"Anomalies: {len(anomaly_df):,}")
+
+            # Release references to current chunk
+            del chunk
+            del clean_df
+            del anomaly_df
+            del full_df
+
+    except Exception:
+
+        print("\n========== PIPELINE FAILED ==========")
+
+        exporter.abort()
+
+        raise
+
+    else:
+
+        if total_chunks == 0:
+            exporter.abort()
+            raise RuntimeError(
+                f"No vegetable records found for year {year}."
+            )
+
+        exporter.close()
+
+    # 6. Final summary
+    print("\n========== FINAL SUMMARY ==========")
 
     print(f"Year: {year}")
-    print(f"Original records: {len(df)}")
-    print(f"Clean records: {len(clean_df)}")
-    print(f"Anomaly records: {len(anomaly_df)}")
+    print(f"Total chunks: {total_chunks:,}")
+    print(f"Original records: {total_records:,}")
+    print(f"Invalid records removed: {total_invalid:,}")
+    print(f"Clean records: {total_clean:,}")
+    print(f"Anomaly records: {total_anomalies:,}")
+    print(f"Known anomalies: {total_known:,}")
+    print(f"IQR low outliers: {total_low:,}")
+    print(f"IQR high outliers: {total_high:,}")
 
-    print("\nPIPELINE COMPLETED SUCCESSFULLY!")
+    print("\n========== PREPROCESSING COMPLETED ==========")
 
-
-# =====================================================
-# 5. RUN PROGRAM
-# =====================================================
 
 if __name__ == "__main__":
 
@@ -134,5 +170,6 @@ if __name__ == "__main__":
 
     except Exception as e:
 
-        print("\nPIPELINE ERROR:")
+        print("\nERROR OCCURRED:")
         print(e)
+        raise
