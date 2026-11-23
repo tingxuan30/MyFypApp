@@ -1,6 +1,6 @@
 
 import pandas as pd
-from MyFYPApp.ml.preprocessing.outlier_detection import detect_known_anomalies
+from preprocessing.outlier_detection import detect_known_anomalies
 
 # Create test records using the six investigated anomalies
 test_data = [

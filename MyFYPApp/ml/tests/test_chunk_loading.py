@@ -1,4 +1,4 @@
-from MyFYPApp.ml.preprocessing.data_processing import iter_vegetable_data
+from preprocessing.data_processing import iter_vegetable_data
 
 
 def main():

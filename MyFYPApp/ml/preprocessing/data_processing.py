@@ -1,6 +1,6 @@
 import pandas as pd
 from sqlalchemy import text
-from MyFYPApp.ml.preprocessing.database import get_engine
+from .database import get_engine
 
 
 

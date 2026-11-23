@@ -1,7 +1,7 @@
 
 import pandas as pd
 
-from MyFYPApp.ml.preprocessing.outlier_detection import detect_all_outliers
+from .outlier_detection import detect_all_outliers
 
 
 # =====================================================

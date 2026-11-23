@@ -1,6 +1,6 @@
-from MyFYPApp.ml.preprocessing.data_processing import iter_vegetable_data
-from MyFYPApp.ml.preprocessing.outlier_detection import calculate_iqr_bounds
-from MyFYPApp.ml.preprocessing.data_cleaning import clean_vegetable_chunk
+from preprocessing.data_processing import iter_vegetable_data
+from preprocessing.outlier_detection import calculate_iqr_bounds
+from preprocessing.data_cleaning import clean_vegetable_chunk
 
 
 def main():
