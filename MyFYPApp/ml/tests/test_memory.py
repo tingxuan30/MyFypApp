@@ -1,7 +1,7 @@
 
 import pandas as pd
 from sqlalchemy import text
-from database import get_engine
+from MyFYPApp.ml.preprocessing.database import get_engine
 
 def main():
 

@@ -89,7 +89,7 @@ def detect_known_anomalies(df):
 def calculate_iqr_bounds(year):
 
     from sqlalchemy import text
-    from database import get_engine
+    from MyFYPApp.ml.preprocessing.database import get_engine
 
     print("\n========== CALCULATING YEARLY IQR BOUNDS ==========")
 

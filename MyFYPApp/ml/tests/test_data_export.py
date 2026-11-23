@@ -2,7 +2,7 @@ import os
 import shutil
 import pandas as pd
 
-from data_export import ChunkExporter
+from MyFYPApp.ml.preprocessing.data_export import ChunkExporter
 
 
 def main():

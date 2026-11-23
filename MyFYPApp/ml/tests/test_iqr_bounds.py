@@ -1,5 +1,5 @@
 
-from outlier_detection import calculate_iqr_bounds
+from MyFYPApp.ml.preprocessing.outlier_detection import calculate_iqr_bounds
 
 
 def main():

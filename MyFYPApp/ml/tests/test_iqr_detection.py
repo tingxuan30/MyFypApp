@@ -1,6 +1,6 @@
 import pandas as pd
 
-from outlier_detection import (
+from MyFYPApp.ml.preprocessing.outlier_detection import (
     calculate_iqr_bounds,
     detect_iqr_outliers_with_bounds
 )

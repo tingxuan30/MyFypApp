@@ -2,10 +2,10 @@
 import os
 import argparse
 
-from data_processing import iter_vegetable_data
-from outlier_detection import calculate_iqr_bounds
-from data_cleaning import clean_vegetable_chunk
-from data_export import ChunkExporter
+from MyFYPApp.ml.preprocessing.data_processing import iter_vegetable_data
+from MyFYPApp.ml.preprocessing.outlier_detection import calculate_iqr_bounds
+from MyFYPApp.ml.preprocessing.data_cleaning import clean_vegetable_chunk
+from MyFYPApp.ml.preprocessing.data_export import ChunkExporter
 
 
 OUTPUT_FOLDER = "cleaned_data"

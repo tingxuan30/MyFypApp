@@ -1,7 +1,7 @@
 
 import pandas as pd
 
-from outlier_detection import detect_all_outliers
+from MyFYPApp.ml.preprocessing.outlier_detection import detect_all_outliers
 
 
 # =====================================================
@@ -126,7 +126,7 @@ def clean_vegetable_chunk(df, bounds):
     df = df[df["average_price"] > 0].copy()
 
     # 3. Detect known anomalies
-    from outlier_detection import (
+    from MyFYPApp.ml.preprocessing.outlier_detection import (
         detect_known_anomalies,
         detect_iqr_outliers_with_bounds
     )

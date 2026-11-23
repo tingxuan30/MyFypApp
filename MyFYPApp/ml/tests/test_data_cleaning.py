@@ -1,8 +1,8 @@
 
 import pandas as pd
 from sqlalchemy import text
-from database import get_engine
-from data_cleaning import clean_vegetable_data
+from MyFYPApp.ml.preprocessing.database import get_engine
+from MyFYPApp.ml.preprocessing.data_cleaning import clean_vegetable_data
 
 
 def load_sample_data():

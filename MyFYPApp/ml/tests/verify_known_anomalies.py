@@ -1,8 +1,8 @@
 
 import pandas as pd
 from sqlalchemy import text
-from database import get_engine
-from outlier_detection import detect_known_anomalies
+from MyFYPApp.ml.preprocessing.database import get_engine
+from MyFYPApp.ml.preprocessing.outlier_detection import detect_known_anomalies
 
 def verify_known_anomalies():
 
